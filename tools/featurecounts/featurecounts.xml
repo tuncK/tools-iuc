@@ -47,7 +47,7 @@
                 -a annotation.saf
                 -F "SAF"
             #elif $anno.anno_select=="cached":
-                -a '$anno.reference_gene_sets_builtin.fields.path'
+                -a '$anno.reference_gene_sets_cached.fields.path'
                 -F "GTF"
             #elif $anno.anno_select=="builtin":
                 -a \${FC_PATH}/annotation/${anno.bgenome}_RefSeq_exon.txt
@@ -162,7 +162,7 @@
                multiple="false"
                format="bam,sam"
                label="Alignment file"
-               help="The input alignment file(s) where the gene expression has to be counted. The file can have a SAM or BAM format; but ALL files must be in the same format. Unless you are using a Gene annotation file from the History, these files must have the database/genome attribute already specified e.g. hg38, not the default: ?" >
+               help="The input alignment file(s) where the gene expression has to be counted. The file can have a SAM or BAM format; but ALL files must be in the same format. Unless you are using a Gene annotation file from the History, these files must have the database/genome attribute already specified e.g. hg38, not the default: ?">
         </param>
 
         <param name="strand_specificity"
@@ -184,18 +184,15 @@
             </param>
             <when value="builtin">
                 <param name="bgenome" type="select" label="Select built-in genome" help="Built-in gene annotations for genomes hg38, hg19, mm10 and mm9 are included in featureCounts">
-                    <options from_data_table="featurecounts_anno">
-                        <filter type="data_meta" key="dbkey" ref="alignment" column="dbkey"/>
-                    </options>
+                    <options from_data_table="featurecounts_anno"/>
                 </param>
             </when>
             <when value="cached">
-                <param name="reference_gene_sets_builtin" type="select" label="Using locally cached annotation" help="If the annotation file you require is not listed here, please contact the Galaxy administrator">
+                <param name="reference_gene_sets_cached" type="select" label="Using locally cached annotation" help="If the annotation file you require is not listed here, please contact the Galaxy administrator">
                     <options from_data_table="gene_sets">
-                        <filter type="data_meta" key="dbkey" ref="alignment" column="dbkey"/>
-                        <filter type="sort_by" column="2"/>
+                       <filter type="sort_by" column="2"/>
                     </options>
-                    <validator type="no_options" message="An annotation file is not available for the build associated with the selected input file"/>
+                    <validator type="no_options" message="No annotation file is available."/>
                 </param>
             </when>
             <when value="history_gtf">
@@ -645,7 +642,7 @@
             <param name="alignment" value="subset.sorted.bam" ftype="bam"/>
             <param name="anno_select" value="history_gtf"/>
             <param name="reference_gene_sets" value="small.gtf" ftype="gtf"/>
-            <section name="extended_parameters" >
+            <section name="extended_parameters">
                 <param name="R" value="true"/>
             </section>
             <output name="output_bam" value="subset.sorted.featurecounts.bam" compare="sim_size"/>
