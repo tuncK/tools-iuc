@@ -611,6 +611,7 @@
         <test expect_num_outputs="3">
             <param name="alignment" value="pairend_strandspecific_51mer_hg19_chr1_1-100000.bam" ftype="bam" dbkey="hg19"/>
             <param name="anno_select" value="builtin"/>
+            <param name="bgenome" value="hg19"/>
             <param name="format" value="tabdel_short"/>
             <conditional name="pe_parameters">
                 <param name="paired_end_status" value="PE_individual"/>
