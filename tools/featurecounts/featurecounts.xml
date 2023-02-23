@@ -27,7 +27,7 @@
 
         ## Check if annotation file from history is saf or bed.
         ## If bed6, add a header line to convert to saf
-        #if $anno.anno_select=="history_tabular":
+        #if $anno.anno_select == "history_tabular":
             if head -n 1 '$anno.reference_gene_sets' | grep -ivq GeneID; then
                 echo GeneID\$'\t'Chr\$'\t'Start\$'\t'End\$'\t'Strand > annotation.saf;
                 awk '{OFS="\t"; print \$4, \$1, \$2, \$3-1, \$6}' '$anno.reference_gene_sets' >> annotation.saf;
@@ -40,16 +40,16 @@
         ## Check whether all alignments are from the same type (bam || sam)
         featureCounts
 
-            #if $anno.anno_select=="history_gtf":
+            #if $anno.anno_select == "history_gtf":
                 -a '$anno.reference_gene_sets'
                 -F "GTF"
-            #elif $anno.anno_select=="history_tabular":
+            #elif $anno.anno_select == "history_tabular":
                 -a annotation.saf
                 -F "SAF"
-            #elif $anno.anno_select=="cached":
+            #elif $anno.anno_select == "cached":
                 -a '$anno.reference_gene_sets_cached.fields.path'
                 -F "GTF"
-            #elif $anno.anno_select=="builtin":
+            #elif $anno.anno_select == "builtin":
                 -a \${FC_PATH}/annotation/${anno.bgenome}_RefSeq_exon.txt
                 -F "SAF"
             #end if
@@ -64,22 +64,16 @@
             $read_filtering_parameters.primary
             $read_filtering_parameters.ignore_dup
 
-            -t '$extended_parameters.gff_feature_type'
-            -g '$extended_parameters.gff_feature_attribute'
-                $extended_parameters.summarization_level
+            #if $anno.anno_select == "history_gtf":
+                -t '$anno.field_to_count.gff_feature_type'
+                -g '$anno.field_to_count.gff_feature_attribute'
+            #end if
 
+                $extended_parameters.summarization_level
                 $extended_parameters.multifeatures.multifeat
                 #if $extended_parameters.multifeatures.multifeat != "":
                     $extended_parameters.multifeatures.fraction
                 #end if
-
-
-                ## $extended_parameters.contribute_to_multiple_features
-                ## $extended_parameters.multimapping_enabled.multimapping_counts
-
-                ###if str($extended_parameters.multimapping_enabled.multimapping_counts) == " -M":
-                ##    $extended_parameters.multimapping_enabled.fraction
-                ###end if -->
 
                 $extended_parameters.exon_exon_junction_read_counting_enabled.count_exon_exon_junction_reads
                 #if str($extended_parameters.exon_exon_junction_read_counting_enabled.count_exon_exon_junction_reads) == "-J":
@@ -179,7 +173,8 @@
             <param name="anno_select" type="select" label="Gene annotation file">
                 <option value="builtin">featureCounts built-in</option>
                 <option value="cached" selected="True">locally cached</option>
-                <option value="history_gtf">A GFF/GTF file in your history</option>
+                <option value="history_gff">A GFF/GFF3 file in your history</option>
+                <option value="history_gtf">A GTF file in your history</option>
                 <option value="history_tabular">A tabular data in your history</option>
             </param>
             <when value="builtin">
@@ -195,13 +190,79 @@
                     <validator type="no_options" message="No annotation file is available."/>
                 </param>
             </when>
-            <when value="history_gtf">
+            <when value="history_gff">
                 <param name="reference_gene_sets"
-                       format="gff,gtf,gff3"
+                       format="gff,gff3"
                        type="data"
                        label="Gene annotation file"
-                       help="The program assumes that the provided annotation file is in GTF format. Make sure that the gene annotation file corresponds to the same reference genome as used for the alignment">
-                </param>
+                       help="The program assumes that the provided annotation file is in GFF format. Make sure that the gene annotation file corresponds to the same reference genome as used for the alignment"/>
+                <conditional name="field_to_count">
+                    <param name="input_options" type="select" label="Which features from the GFF file to count?">
+                        <option value="parse_gff" selected="True">Parse the GFF file and show me some options.</option>
+                        <option value="text_input">I have a better idea and will type precisely what I want.</option>
+                    </param>
+                    <when value="text_input">
+                        <param name="gff_feature_type" type="text" value="exon" argument="-t" label="GFF feature type filter" help="Specify the feature type. Only rows which have the matched feature type in the provided GFF annotation file will be included for read counting. `exon' by default. Each entry in the annotation file will have a specific feature type at its 3rd column."/>
+                        <param name="gff_feature_attribute" type="text" value="gene_id" argument="-g" label="GFF gene identifier" help="This argument is useful for the meta-feature level summarization. Specify the attribute type used to group the features (eg. exons) into meta-features (eg. genes). `gene_id' by default. This attribute type is usually the gene identifier. If the 9th column is 'hid=trf; hstart=1; hend=21', the available attributes for this feature are 'gene_id', 'gene_name' and 'gene_source'."/>
+                    </when>
+                    <when value="parse_gff">
+                        <param name="gff_feature_type" type="select" refresh_on_change="true" argument="-t" label="GFF feature type filter" help="Select the feature type. Only rows which have the matched feature type in the provided GFF annotation file will be included for read counting. This identifier is usually `exon' or `gene'. These options were populated by processing the first 1MB of the annotation file you have provided.">
+                           <options from_dataset="reference_gene_sets">
+                                <column name="name" index="2"/>
+                                <column name="value" index="2"/>
+                                <filter type="unique_value" column="2"/>
+                                <filter type="regexp" column="2" keep="true" value="\S"/>
+                                <filter type="sort_by" column="2"/>
+                                <validator type="no_options" message="No option available from this GFF file"/>
+                            </options>
+                        </param>
+                        <param name="gff_feature_attribute" type="select" refresh_on_change="true" argument="-g" label="GFF feature identifier" help="This argument is useful for the meta-feature level summarization. Specify the attribute type used to group the features (eg. exons) into meta-features (eg. genes). `gene_id' by default. This attribute type is usually the gene identifier. If the 9th column is 'hid=trf; hstart=1; hend=21', the available attributes for this feature are 'gene_id', 'gene_name' and 'gene_source'.">
+                            <options from_dataset="reference_gene_sets">
+                                <column name="name" index="8"/>
+                                <column name="value" index="8"/>
+                                <filter type="attribute_value_splitter" column="8" pair_separator=";" name_val_separator="="/>
+                                <validator type="no_options" message="No option available from this GFF file"/>
+                            </options>
+                        </param>
+                    </when>
+                </conditional>
+            </when>
+            <when value="history_gtf">
+                <param name="reference_gene_sets"
+                       format="gtf"
+                       type="data"
+                       label="Gene annotation file"
+                       help="The program assumes that the provided annotation file is in GTF format. Make sure that the gene annotation file corresponds to the same reference genome as used for the alignment"/>              
+                <conditional name="field_to_count">
+                    <param name="input_options" type="select" label="Which features from the GTF file to count?">
+                        <option value="parse_gtf" selected="True">Parse the GTF file and show me some options.</option>
+                        <option value="text_input">I will type precisely what I want.</option>
+                    </param>
+                    <when value="text_input">
+                        <param name="gff_feature_type" type="text" value="exon" argument="-t" label="GTF feature type filter" help="Specify the feature type. Only rows which have the matched feature type in the provided GTF annotation file will be included for read counting. `exon' by default."/>
+                        <param name="gff_feature_attribute" type="text" value="gene_id" argument="-g" label="GTF gene identifier" help="This argument is useful for the meta-feature level summarization. Specify the attribute type used to group the features (eg. exons) into meta-features (eg. genes). `gene_id' by default. This attribute type is usually the gene identifier. If the 9th column is 'gene_id &quot;ENSG00000223972&quot;; gene_name &quot;DDX11L1&quot;; gene_source &quot;havana&quot;', the available attributes for this feature are 'gene_id', 'gene_name' and 'gene_source'."/>
+                    </when>
+                    <when value="parse_gtf">
+                        <param name="gff_feature_type" type="select" refresh_on_change="true" argument="-t" label="GTF feature type filter" help="Select the feature type. Only rows which have the matched matched feature type in the provided GTF annotation file will be included for read counting. This identifier is usually `exon' or `gene'. These options were populated by processing the first 1MB of the annotation file you have provided.">
+                           <options from_dataset="reference_gene_sets">
+                                <column name="name" index="2"/>
+                                <column name="value" index="2"/>
+                                <filter type="unique_value" column="2"/>
+                                <filter type="regexp" column="2" keep="true" value="\S"/>
+                                <filter type="sort_by" column="2"/>
+                                <validator type="no_options" message="No option available from this annotation file"/>
+                            </options>
+                        </param>
+                        <param name="gff_feature_attribute" type="select" refresh_on_change="true" argument="-g" label="GTF feature identifier" help="This argument is useful for the meta-feature level summarization. Specify the attribute type used to group the features (eg. exons) into meta-features (eg. genes). `gene_id' by default. This attribute type is usually the gene identifier. If the 9th column is 'gene_id &quot;ENSG00000223972&quot;; gene_name &quot;DDX11L1&quot;; gene_source &quot;havana&quot;', the available attributes for this feature are 'gene_id', 'gene_name' and 'gene_source'.">
+                            <options from_dataset="reference_gene_sets">
+                                <column name="name" index="8"/>
+                                <column name="value" index="8"/>
+                                <filter type="attribute_value_splitter" column="8" pair_separator=";" name_val_separator=' "'/>
+                                <validator type="no_options" message="No option available from this annotation file"/>
+                            </options>
+                        </param>
+                    </when>
+                </conditional>
             </when>
             <when value="history_tabular">
                 <param name="reference_gene_sets"
@@ -327,20 +388,6 @@
         </section>
 
         <section name="extended_parameters" title="Advanced options">
-            <param name="gff_feature_type"
-                type="text"
-                value="exon"
-                argument="-t"
-                label="GFF feature type filter"
-                help="Specify the feature type. Only rows which have the matched matched feature type in the provided GTF annotation file will be included for read counting. `exon' by default."/>
-
-            <param name="gff_feature_attribute"
-                type="text"
-                value="gene_id"
-                argument="-g"
-                label="GFF gene identifier"
-                help="Specify the attribute type used to group features (eg. exons) into meta-features (eg. genes), when GTF annotation is provided. `gene_id' by default. This attribute type is usually the gene identifier. This argument is useful for the meta-feature level summarization."/>
-
             <param name="summarization_level"
                 type="boolean"
                 truevalue=" -f"
