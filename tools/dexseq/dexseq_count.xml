@@ -73,14 +73,14 @@
     </outputs>
 
     <tests>
-        <test>
+        <test expect_num_outputs="1">
             <param name="mode_select" value="prepare" />
             <param name="gtffile" ftype="gff" value="original.gtf"/>
             <param name="aggregate" value="True"/>
             <output name="flattened_gtf_out" ftype="gtf" compare="sim_size" file="flattened.gtf"/>
         </test>
         <!-- Ensure count mode works -->
-        <test>
+        <test expect_num_outputs="1">
             <param name="mode_select" value="count" />
             <param name="bamfile" ftype="bam" value="in.bam" />
             <param name="flattened_gtf_in" ftype="gff" value="flattened.gtf"/>
